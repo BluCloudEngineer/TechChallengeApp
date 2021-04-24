@@ -7,7 +7,13 @@ This will deploy the Servian Golang application on the Amazon Web Services (AWS)
 Please read the following sections below for all assumptions made, prerequisites, architectural overview, deployment instructions and changes made to the application:
 
 ## 1.0  Assumptions Made
+
+*   All AWS resources will be deployed in the ap-southeast-2 (Sydney) region.
+
 ## 2.0  Prerequisites
+
+*   You will need the latest version of the AWS CLI installed on your computer: https://aws.amazon.com/cli/
+
 ## 3.0  Architectural Overview
 ## 4.0  Deployment Instructions
 ## 5.0  Changes Made to the GoLang Application
