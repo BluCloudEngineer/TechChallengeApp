@@ -1,0 +1,26 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Deploy Servian Tech Challenge App to AWS"
+
+
+Parameters:
+  ProjectName:
+    Default: "Servian Tech Challenge App"
+    Description: "The name of the AWS project"
+    Type: "String"
+
+
+Resources:
+  # --- Start new VPC and public subnets ---
+    TechChallengeVpc:
+      Type: AWS::EC2::VPC
+      Properties:
+        CidrBlock: "10.0.0.0/16"
+        EnableDnsHostnames: true
+        EnableDnsSupport: true
+        InstanceTenancy: default
+        Tags:
+          - Key: "Name"
+            Value: "Servian Tech Challenge VPC"
+          - Key: "Project"
+            Value: !Ref ProjectName
+  # --- End new VPC and public subnets ---
