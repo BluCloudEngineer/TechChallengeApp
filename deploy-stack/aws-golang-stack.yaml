@@ -307,7 +307,7 @@ Resources:
           ExcludeCharacters: "/'\"@"
           ExcludeLowercase: false
           ExcludeNumbers: false
-          ExcludePunctuation: false
+          ExcludePunctuation: true
           ExcludeUppercase: false
           GenerateStringKey: "password"
           IncludeSpace: false
