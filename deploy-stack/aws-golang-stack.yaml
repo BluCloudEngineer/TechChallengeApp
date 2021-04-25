@@ -10,7 +10,7 @@ Parameters:
 
 
 Resources:
-  # --- Start new VPC and public subnets ---
+  # --- Start new VPC, public / private subnets, route tables and Internet Gateway ---
     TechChallengeVpc:
       Type: AWS::EC2::VPC
       Properties:
@@ -23,4 +23,232 @@ Resources:
             Value: "Servian Tech Challenge VPC"
           - Key: "Project"
             Value: !Ref ProjectName
-  # --- End new VPC and public subnets ---
+    
+    PublicInternetGateway:
+      Type: AWS::EC2::InternetGateway
+      Properties:
+        Tags:
+          - Key: "Name"
+            Value: "Servian Tech Challenge Internet Gateway"
+          - Key: "Project"
+            Value: !Ref ProjectName
+    
+    PublicInternetGatewayAttachment:
+      Type: AWS::EC2::VPCGatewayAttachment
+      Properties:
+        InternetGatewayId: !Ref PublicInternetGateway
+        VpcId: !Ref TechChallengeVpc
+
+    PublicSubnet1:
+      Type: AWS::EC2::Subnet
+      Properties:
+        AvailabilityZone: "ap-southeast-2a"
+        CidrBlock: "10.0.10.0/24"
+        MapPublicIpOnLaunch: true
+        Tags:
+          - Key: "Name"
+            Value: "Public Subnet 1"
+          - Key: "Project"
+            Value: !Ref ProjectName
+          - Key: "Subnet Type"
+            Value: "Public"
+        VpcId: !Ref TechChallengeVpc
+    
+    PublicSubnet1RouteTable:
+      Type: AWS::EC2::RouteTable
+      Properties:
+        Tags:
+          - Key: "Name"
+            Value: "Public Route Table 1"
+          - Key: "Project"
+            Value: !Ref ProjectName
+        VpcId: !Ref TechChallengeVpc
+
+    PublicSubnet1RouteTableAssociation:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        RouteTableId: !Ref PublicSubnet1RouteTable
+        SubnetId: !Ref PublicSubnet1
+    
+    PublicSubnet1Route:
+      Type: AWS::EC2::Route
+      Properties:
+        DestinationCidrBlock: "0.0.0.0/0"
+        GatewayId: !Ref PublicInternetGateway
+        RouteTableId: !Ref PublicSubnet1RouteTable
+    
+    PublicSubnet2:
+      Type: AWS::EC2::Subnet
+      Properties:
+        AvailabilityZone: "ap-southeast-2b"
+        CidrBlock: "10.0.20.0/24"
+        MapPublicIpOnLaunch: true
+        Tags:
+          - Key: "Name"
+            Value: "Public Subnet 2"
+          - Key: "Project"
+            Value: !Ref ProjectName
+          - Key: "Subnet Type"
+            Value: "Public"
+        VpcId: !Ref TechChallengeVpc
+
+    PublicSubnet2RouteTable:
+      Type: AWS::EC2::RouteTable
+      Properties:
+        Tags:
+          - Key: "Name"
+            Value: "Public Route Table 2"
+          - Key: "Project"
+            Value: !Ref ProjectName
+        VpcId: !Ref TechChallengeVpc
+
+    PublicSubnet2RouteTableAssociation:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        RouteTableId: !Ref PublicSubnet2RouteTable
+        SubnetId: !Ref PublicSubnet2
+
+    PublicSubnet2Route:
+      Type: AWS::EC2::Route
+      Properties:
+        DestinationCidrBlock: "0.0.0.0/0"
+        GatewayId: !Ref PublicInternetGateway
+        RouteTableId: !Ref PublicSubnet2RouteTable
+    
+    PublicSubnet3:
+      Type: AWS::EC2::Subnet
+      Properties:
+        AvailabilityZone: "ap-southeast-2c"
+        CidrBlock: "10.0.30.0/24"
+        MapPublicIpOnLaunch: true
+        Tags:
+          - Key: "Name"
+            Value: "Public Subnet 3"
+          - Key: "Project"
+            Value: !Ref ProjectName
+          - Key: "Subnet Type"
+            Value: "Public"
+        VpcId: !Ref TechChallengeVpc
+
+    PublicSubnet3RouteTable:
+      Type: AWS::EC2::RouteTable
+      Properties:
+        Tags:
+          - Key: "Name"
+            Value: "Public Route Table 3"
+          - Key: "Project"
+            Value: !Ref ProjectName
+        VpcId: !Ref TechChallengeVpc
+
+    PublicSubnet3RouteTableAssociation:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        RouteTableId: !Ref PublicSubnet3RouteTable
+        SubnetId: !Ref PublicSubnet3
+
+    PublicSubnet3Route:
+      Type: AWS::EC2::Route
+      Properties:
+        DestinationCidrBlock: "0.0.0.0/0"
+        GatewayId: !Ref PublicInternetGateway
+        RouteTableId: !Ref PublicSubnet3RouteTable
+
+    PrivateSubnet1:
+      Type: AWS::EC2::Subnet
+      Properties:
+        AvailabilityZone: "ap-southeast-2a"
+        CidrBlock: "10.0.110.0/24"
+        MapPublicIpOnLaunch: false
+        Tags:
+          - Key: "Name"
+            Value: "Private Subnet 1"
+          - Key: "Project"
+            Value: !Ref ProjectName
+          - Key: "Subnet Type"
+            Value: "Private"
+        VpcId: !Ref TechChallengeVpc
+ 
+    PrivateSubnet1RouteTable:
+      Type: AWS::EC2::RouteTable
+      Properties:
+        Tags:
+          - Key: "Name"
+            Value: "Private Route Table 1"
+          - Key: "Project"
+            Value: !Ref ProjectName
+        VpcId: !Ref TechChallengeVpc
+
+    PrivateSubnet1RouteTableAssociation:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        RouteTableId: !Ref PrivateSubnet1RouteTable
+        SubnetId: !Ref PrivateSubnet1
+
+    #PrivateSubnet1Route: # TODO: Add routes later
+
+    PrivateSubnet2:
+      Type: AWS::EC2::Subnet
+      Properties:
+        AvailabilityZone: "ap-southeast-2b"
+        CidrBlock: "10.0.120.0/24"
+        MapPublicIpOnLaunch: false
+        Tags:
+          - Key: "Name"
+            Value: "Private Subnet 2"
+          - Key: "Project"
+            Value: !Ref ProjectName
+          - Key: "Subnet Type"
+            Value: "Private"
+        VpcId: !Ref TechChallengeVpc
+
+    PrivateSubnet2RouteTable:
+      Type: AWS::EC2::RouteTable
+      Properties:
+        Tags:
+          - Key: "Name"
+            Value: "Private Route Table 2"
+          - Key: "Project"
+            Value: !Ref ProjectName
+        VpcId: !Ref TechChallengeVpc
+
+    PrivateSubnet2RouteTableAssociation:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        RouteTableId: !Ref PrivateSubnet2RouteTable
+        SubnetId: !Ref PrivateSubnet2
+
+    #PrivateSubnet2Route: # TODO: Add routes later
+
+    PrivateSubnet3:
+      Type: AWS::EC2::Subnet
+      Properties:
+        AvailabilityZone: "ap-southeast-2c"
+        CidrBlock: "10.0.130.0/24"
+        MapPublicIpOnLaunch: false
+        Tags:
+          - Key: "Name"
+            Value: "Private Subnet 3"
+          - Key: "Project"
+            Value: !Ref ProjectName
+          - Key: "Subnet Type"
+            Value: "Private"
+        VpcId: !Ref TechChallengeVpc
+
+    PrivateSubnet3RouteTable:
+      Type: AWS::EC2::RouteTable
+      Properties:
+        Tags:
+          - Key: "Name"
+            Value: "Private Route Table 3"
+          - Key: "Project"
+            Value: !Ref ProjectName
+        VpcId: !Ref TechChallengeVpc
+
+    PrivateSubnet3RouteTableAssociation:
+      Type: AWS::EC2::SubnetRouteTableAssociation
+      Properties:
+        RouteTableId: !Ref PrivateSubnet3RouteTable
+        SubnetId: !Ref PrivateSubnet3
+
+    #PrivateSubnet3Route: # TODO: Add routes later
+  # --- End new VPC, public / private subnets, route tables and Internet Gateway ---
