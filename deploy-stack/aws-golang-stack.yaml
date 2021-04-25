@@ -7,6 +7,51 @@ Parameters:
     Default: "Servian Tech Challenge App"
     Description: "The name of the AWS project"
     Type: "String"
+  
+  RdsBackupRetention:
+    ConstraintDescription: "Must be a positive integer value that is greater than or zero to zero or less than or equal to 35"
+    Default: 7
+    Description: "Total number of days to retain RDS backups"
+    MaxValue: 35
+    MinValue: 0
+    Type: "Number"
+  
+  RdsInstanceClassType:
+    AllowedValues:
+      - "db.r5.large"
+      - "db.r5.xlarge"
+      - "db.r5.2xlarge"
+    ConstraintDescription: "Must be one of the allowed values"
+    Default: "db.r5.large"
+    Description: "The instance class for the RDS database"
+    Type: "String"
+  
+  RdsDefaultDatabaseName:
+    Default: "app"
+    Description: "The name given for the default database"
+    Type: "String"
+  
+  RdsDatabaseEngineVersion:
+    AllowedValues:
+      - "9.6.3"
+      - "9.6.6"
+      - "9.6.8"
+      - "9.6.9"
+      - "9.6.11"
+      - "9.6.12"
+      - "9.6.16"
+      - "9.6.17"
+      - "9.6.18"
+      - "9.6.19"
+      - "10.7"
+    Default: "10.7"
+    Description: "RDS cluster engine version to use"
+    Type: "String"
+  
+  RdsDatabaseEngineName:
+    Default: "aurora-postgresql"
+    Description: "The name of the database engine to be used by the RDS database instance"
+    Type: "String"
 
 
 Resources:
@@ -274,3 +319,118 @@ Resources:
             - Key: "Project"
               Value: !Ref ProjectName
   # --- End create RDS credentials ---
+
+  # --- Start create RDS cluster and database instances ---
+    RdsDatabaseCluster:
+      Type: AWS::RDS::DBCluster
+      Properties:
+        AvailabilityZones:
+          - "ap-southeast-2a"
+          - "ap-southeast-2b"
+          - "ap-southeast-2c"
+        BackupRetentionPeriod: !Ref RdsBackupRetention
+        DatabaseName: !Ref RdsDefaultDatabaseName
+        DBClusterIdentifier: "Servian-TechChallengeApp-Cluster"
+        DBSubnetGroupName: !Ref RdsClusterDatabaseGroup
+        DeletionProtection: false # Disabled for this exercise
+        EnableHttpEndpoint: false
+        Engine: "aurora-postgresql"
+        EngineMode: "provisioned"
+        EngineVersion: !Ref RdsDatabaseEngineVersion
+        MasterUsername: !Sub "{{resolve:secretsmanager:${RdsSecretCredentials}::username}}"
+        MasterUserPassword: !Sub "{{resolve:secretsmanager:${RdsSecretCredentials}::password}}"
+        Port: 5432
+        StorageEncrypted: true
+        Tags:
+          - Key: "Name"
+            Value: "TechChallengeApp Database"
+          - Key: "Project"
+            Value: !Ref ProjectName
+        VpcSecurityGroupIds:
+          - !Sub ${RdsSecurityGroup.GroupId}
+
+    RdsClusterDatabaseGroup:
+      Type: AWS::RDS::DBSubnetGroup
+      Properties:
+        DBSubnetGroupDescription: "Servian TechChallengeApp Group"
+        DBSubnetGroupName: "servian-techchallengeapp-group"
+        SubnetIds:
+          - !Ref PublicSubnet1 # TODO: Delete later once testing is complete
+          - !Ref PublicSubnet2 # TODO: Delete later once testing is complete
+          - !Ref PublicSubnet3 # TODO: Delete later once testing is complete
+          #- !Ref PrivateSubnet1
+          #- !Ref PrivateSubnet2
+          #- !Ref PrivateSubnet3
+        Tags:
+          - Key: "Name"
+            Value: "TechChallengeApp Database Group"
+          - Key: "Project"
+            Value: !Ref ProjectName
+    
+    RdsDatabaseClusterInstance1:
+      Type: AWS::RDS::DBInstance
+      Properties:
+        AllowMajorVersionUpgrade: false # This is disabled to keep the database at a set version
+        AutoMinorVersionUpgrade: false # This is disabled to keep the database at a set version
+        DBClusterIdentifier: !Ref RdsDatabaseCluster
+        DBInstanceClass: !Ref RdsInstanceClassType
+        DBInstanceIdentifier: "Servian-TechChallengeApp-Database-1"
+        DBSubnetGroupName: !Ref RdsClusterDatabaseGroup
+        DeleteAutomatedBackups: true
+        EnablePerformanceInsights: false
+        Engine: !Ref RdsDatabaseEngineName
+        MonitoringInterval: 0
+        PubliclyAccessible: true # TODO: Change this to false once testing is complete
+        StorageEncrypted: true
+        Tags:
+            - Key: "Name"
+              Value: "TechChallengeApp Database"
+            - Key: "Project"
+              Value: !Ref ProjectName
+
+    RdsDatabaseClusterInstance2:
+      Type: AWS::RDS::DBInstance
+      Properties:
+        AllowMajorVersionUpgrade: false # This is disabled to keep the database at a set version
+        AutoMinorVersionUpgrade: false # This is disabled to keep the database at a set version
+        DBClusterIdentifier: !Ref RdsDatabaseCluster
+        DBInstanceClass: !Ref RdsInstanceClassType
+        DBInstanceIdentifier: "Servian-TechChallengeApp-Database-2"
+        DBSubnetGroupName: !Ref RdsClusterDatabaseGroup
+        DeleteAutomatedBackups: true
+        EnablePerformanceInsights: false
+        Engine: !Ref RdsDatabaseEngineName
+        MonitoringInterval: 0
+        PubliclyAccessible: true # TODO: Change this to false once testing is complete
+        StorageEncrypted: true
+        Tags:
+            - Key: "Name"
+              Value: "TechChallengeApp Database"
+            - Key: "Project"
+              Value: !Ref ProjectName
+  # --- End create RDS cluster and database instances ---
+
+  # --- Start Security Groups ---
+    RdsSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupDescription: "Access to RDS cluster"
+        GroupName: "TechChallengeApp-RDS-Access"
+        SecurityGroupIngress:
+          - CidrIp: "0.0.0.0/0" # TODO: Update to internal IP address range
+            Description: "PostgreSQL RDS access"
+            FromPort: 5432
+            IpProtocol: "tcp"
+            ToPort: 5432
+        Tags:
+            - Key: "Name"
+              Value: "RDS-Security-Group"
+            - Key: "Project"
+              Value: !Ref ProjectName
+        VpcId: !Ref TechChallengeVpc
+  # --- End Security Groups ---
+
+Outputs:
+  StackDeletionRds:
+    Description: "Stack Deletion Clean Up"
+    Value: "After deleting the stack, it is recommended that you delete the backup snapshot(s) that are automatically generated by Amazon RDS"
