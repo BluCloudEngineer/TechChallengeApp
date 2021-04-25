@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/BurntSushi/toml v0.3.1 // indirect
+	github.com/aws/aws-sdk-go v1.38.25
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.4.7 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
@@ -21,7 +22,4 @@ require (
 	github.com/spf13/pflag v1.0.1 // indirect
 	github.com/spf13/viper v1.0.2
 	github.com/stretchr/testify v1.6.1 // indirect
-	golang.org/x/sys v0.0.0-20180724212812-e072cadbbdc8 // indirect
-	golang.org/x/text v0.3.0 // indirect
-	gopkg.in/yaml.v2 v2.2.1 // indirect
 )
