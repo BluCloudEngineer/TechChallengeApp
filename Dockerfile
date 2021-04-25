@@ -1,37 +1,22 @@
-FROM golang:alpine AS build
+# Download Ubuntu 20.04 LTS image
+FROM ubuntu:focal
 
-RUN apk add --no-cache curl git alpine-sdk
+# Run commands to configure the Docker container
+RUN apt update -y
+RUN apt dist-upgrade -y
+RUN apt install curl unzip -y
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
+RUN unzip /tmp/awscliv2.zip -d /tmp
+RUN /tmp/aws/install
+RUN aws configure set default.region ap-southeast-2
 
-ARG SWAGGER_UI_VERSION=3.20.9
+# Add TechChallengeApp files
+ADD dist/TechChallengeApp /TechChallengeApp
+ADD dist/conf.toml /conf.toml
+COPY dist/assets/ /assets
 
-RUN dir=$(mktemp -d) \
-    && git clone https://github.com/go-swagger/go-swagger "$dir" \
-    && cd "$dir" \
-    && go install ./cmd/swagger \
-    && curl -sfL https://github.com/swagger-api/swagger-ui/archive/v$SWAGGER_UI_VERSION.tar.gz | tar xz -C /tmp/ \
-    && mv /tmp/swagger-ui-$SWAGGER_UI_VERSION /tmp/swagger \
-    && sed -i 's#"https://petstore\.swagger\.io/v2/swagger\.json"#"./swagger.json"#g' /tmp/swagger/dist/index.html
+# Expose the required port
+EXPOSE 3000
 
-WORKDIR $GOPATH/src/github.com/servian/TechChallengeApp
-
-COPY go.mod go.sum $GOPATH/src/github.com/servian/TechChallengeApp/
-
-RUN go mod tidy
-
-COPY . .
-
-RUN go build -ldflags="-s -w" -a -o /TechChallengeApp
-RUN swagger generate spec -o /swagger.json
-
-FROM alpine:latest
-
-WORKDIR /TechChallengeApp
-
-COPY assets ./assets
-COPY conf.toml ./conf.toml
-
-COPY --from=build /tmp/swagger/dist ./assets/swagger
-COPY --from=build /swagger.json ./assets/swagger/swagger.json
-COPY --from=build /TechChallengeApp TechChallengeApp
-
-ENTRYPOINT [ "./TechChallengeApp" ]
+# Run the following commands when executing the Docker container
+CMD /TechChallengeApp updatedb -s && /TechChallengeApp serve
