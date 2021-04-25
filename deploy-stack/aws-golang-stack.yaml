@@ -302,7 +302,7 @@ Resources:
     RdsSecretCredentials:
       Type: AWS::SecretsManager::Secret
       Properties:
-        Description: "Credentials and connection string data for the Servian Tech Challenge App database"
+        Description: "Credentials and connection string data for the Servian Tech Challenge App database cluster and instances"
         GenerateSecretString:
           ExcludeCharacters: "/'\"@"
           ExcludeLowercase: false
@@ -318,6 +318,13 @@ Resources:
               Value: "TechChallengeApp Secret"
             - Key: "Project"
               Value: !Ref ProjectName
+    
+    RdsSecretCredentialsTargetAttachment:
+      Type: AWS::SecretsManager::SecretTargetAttachment
+      Properties:
+        SecretId: !Ref RdsSecretCredentials
+        TargetId: !Ref RdsDatabaseCluster
+        TargetType: "AWS::RDS::DBCluster"
   # --- End create RDS credentials ---
 
   # --- Start create RDS cluster and database instances ---
