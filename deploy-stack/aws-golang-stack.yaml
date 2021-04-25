@@ -252,3 +252,25 @@ Resources:
 
     #PrivateSubnet3Route: # TODO: Add routes later
   # --- End new VPC, public / private subnets, route tables and Internet Gateway ---
+
+  # --- Start create RDS credentials ---
+    RdsSecretCredentials:
+      Type: AWS::SecretsManager::Secret
+      Properties:
+        Description: "Credentials and connection string data for the Servian Tech Challenge App database"
+        GenerateSecretString:
+          ExcludeCharacters: "/'\"@"
+          ExcludeLowercase: false
+          ExcludeNumbers: false
+          ExcludePunctuation: false
+          ExcludeUppercase: false
+          GenerateStringKey: "password"
+          IncludeSpace: false
+          SecretStringTemplate: "{\"username\": \"postgres\"}"
+        Name: "/Servian/TechChallengeApp/RDS"
+        Tags:
+            - Key: "Name"
+              Value: "TechChallengeApp Secret"
+            - Key: "Project"
+              Value: !Ref ProjectName
+  # --- End create RDS credentials ---
