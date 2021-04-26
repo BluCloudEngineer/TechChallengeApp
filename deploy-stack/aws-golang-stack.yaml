@@ -1,4 +1,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
+Transform:
+  - "AWS::SecretsManager-2020-07-23"
+
 Description: "Deploy Servian Tech Challenge App to AWS"
 
 
@@ -8,7 +11,7 @@ Parameters:
     Description: "The name of the AWS project"
     Type: "String"
   
-  RdsBackupRetention:
+  RdsBackupRetentionDays:
     ConstraintDescription: "Must be a positive integer value that is greater than or zero to zero or less than or equal to 35"
     Default: 7
     Description: "Total number of days to retain RDS backups"
@@ -52,6 +55,37 @@ Parameters:
     Default: "aurora-postgresql"
     Description: "The name of the database engine to be used by the RDS database instance"
     Type: "String"
+  
+  RdsSecretRotationDays:
+    ConstraintDescription: "Must be a positive integer value that is greater than or equal to one or less than or equal to 60"
+    Default: 30 # Days
+    Description: "The total number of days before the RDS secret is rotated"
+    MaxValue: 60
+    MinValue: 1
+    Type: "Number"
+  
+  RdsSecretRotationLogGroupRetention:
+    AllowedValues:
+      - 1
+      - 3
+      - 5
+      - 7
+      - 14
+      - 30
+      - 60
+      - 90
+      - 120
+      - 150
+      - 180
+      - 365
+      - 400
+      - 545
+      - 731
+      - 1827
+      - 3653
+    Default: 30 # Days
+    Description: "Total number of days to retain Amazon CloudWatch logs"
+    Type: "Number"
 
 
 Resources:
@@ -229,8 +263,6 @@ Resources:
         RouteTableId: !Ref PrivateSubnet1RouteTable
         SubnetId: !Ref PrivateSubnet1
 
-    #PrivateSubnet1Route: # TODO: Add routes later
-
     PrivateSubnet2:
       Type: AWS::EC2::Subnet
       Properties:
@@ -261,8 +293,6 @@ Resources:
       Properties:
         RouteTableId: !Ref PrivateSubnet2RouteTable
         SubnetId: !Ref PrivateSubnet2
-
-    #PrivateSubnet2Route: # TODO: Add routes later
 
     PrivateSubnet3:
       Type: AWS::EC2::Subnet
@@ -295,7 +325,19 @@ Resources:
         RouteTableId: !Ref PrivateSubnet3RouteTable
         SubnetId: !Ref PrivateSubnet3
 
-    #PrivateSubnet3Route: # TODO: Add routes later
+    PrivateSecretsManagerEndpoint:
+      Type: AWS::EC2::VPCEndpoint
+      Properties:
+        PrivateDnsEnabled: true
+        SecurityGroupIds:
+          - !Sub ${SecretsManagerSecurityGroup.GroupId}
+        ServiceName: "com.amazonaws.ap-southeast-2.secretsmanager"
+        SubnetIds:
+          - !Ref PrivateSubnet1
+          - !Ref PrivateSubnet2
+          - !Ref PrivateSubnet3
+        VpcEndpointType: "Interface"
+        VpcId: !Ref TechChallengeVpc
   # --- End new VPC, public / private subnets, route tables and Internet Gateway ---
 
   # --- Start create RDS credentials ---
@@ -325,6 +367,24 @@ Resources:
         SecretId: !Ref RdsSecretCredentials
         TargetId: !Ref RdsDatabaseCluster
         TargetType: "AWS::RDS::DBCluster"
+    
+    RdsSecretCredentialsRotation:
+      DependsOn: RdsSecretCredentialsTargetAttachment
+      Type: AWS::SecretsManager::RotationSchedule
+      Properties:
+        HostedRotationLambda:
+          RotationLambdaName: "servian-techchallengeapp-cluster-Secret-Rotation"
+          RotationType: "PostgreSQLSingleUser"
+          VpcSecurityGroupIds: !Sub ${RdsSecurityGroup.GroupId}
+          VpcSubnetIds:
+            Fn::Join:
+                - ","
+                - - !Ref PrivateSubnet1
+                  - !Ref PrivateSubnet2
+                  - !Ref PrivateSubnet3
+        RotationRules:
+          AutomaticallyAfterDays: !Ref RdsSecretRotationDays
+        SecretId: !Ref RdsSecretCredentials
   # --- End create RDS credentials ---
 
   # --- Start create RDS cluster and database instances ---
@@ -335,7 +395,7 @@ Resources:
           - "ap-southeast-2a"
           - "ap-southeast-2b"
           - "ap-southeast-2c"
-        BackupRetentionPeriod: !Ref RdsBackupRetention
+        BackupRetentionPeriod: !Ref RdsBackupRetentionDays
         DatabaseName: !Ref RdsDefaultDatabaseName
         DBClusterIdentifier: "Servian-TechChallengeApp-Cluster"
         DBSubnetGroupName: !Ref RdsClusterDatabaseGroup
@@ -362,12 +422,9 @@ Resources:
         DBSubnetGroupDescription: "Servian TechChallengeApp Group"
         DBSubnetGroupName: "servian-techchallengeapp-group"
         SubnetIds:
-          - !Ref PublicSubnet1 # TODO: Delete later once testing is complete
-          - !Ref PublicSubnet2 # TODO: Delete later once testing is complete
-          - !Ref PublicSubnet3 # TODO: Delete later once testing is complete
-          #- !Ref PrivateSubnet1
-          #- !Ref PrivateSubnet2
-          #- !Ref PrivateSubnet3
+          - !Ref PrivateSubnet1
+          - !Ref PrivateSubnet2
+          - !Ref PrivateSubnet3
         Tags:
           - Key: "Name"
             Value: "TechChallengeApp Database Group"
@@ -387,7 +444,7 @@ Resources:
         EnablePerformanceInsights: false
         Engine: !Ref RdsDatabaseEngineName
         MonitoringInterval: 0
-        PubliclyAccessible: true # TODO: Change this to false once testing is complete
+        PubliclyAccessible: false
         StorageEncrypted: true
         Tags:
             - Key: "Name"
@@ -408,7 +465,7 @@ Resources:
         EnablePerformanceInsights: false
         Engine: !Ref RdsDatabaseEngineName
         MonitoringInterval: 0
-        PubliclyAccessible: true # TODO: Change this to false once testing is complete
+        PubliclyAccessible: false
         StorageEncrypted: true
         Tags:
             - Key: "Name"
@@ -424,18 +481,45 @@ Resources:
         GroupDescription: "Access to RDS cluster"
         GroupName: "TechChallengeApp-RDS-Access"
         SecurityGroupIngress:
-          - CidrIp: "0.0.0.0/0" # TODO: Update to internal IP address range
+          - CidrIp: "10.0.0.0/16"
             Description: "PostgreSQL RDS access"
             FromPort: 5432
             IpProtocol: "tcp"
             ToPort: 5432
         Tags:
-            - Key: "Name"
-              Value: "RDS-Security-Group"
-            - Key: "Project"
-              Value: !Ref ProjectName
+          - Key: "Name"
+            Value: "RDS Security Group"
+          - Key: "Project"
+            Value: !Ref ProjectName
+        VpcId: !Ref TechChallengeVpc
+    
+    SecretsManagerSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupDescription: "Access to AWS Secrets Manager"
+        GroupName: "TechChallengeApp-AWS-Secrets-Manager-Access"
+        SecurityGroupIngress:
+          - CidrIp: "0.0.0.0/0"
+            Description: "Secrets Manger access"
+            FromPort: 443
+            IpProtocol: "tcp"
+            ToPort: 443
+        Tags:
+          - Key: "Name"
+            Value: "AWS Secrets Manager Security Group"
+          - Key: "Project"
+            Value: !Ref ProjectName
         VpcId: !Ref TechChallengeVpc
   # --- End Security Groups ---
+
+  # --- Start Amazon CloudWatch Log Groups ---
+    RdsSecretLogGroup:
+      DependsOn: RdsSecretCredentialsRotation
+      Type: AWS::Logs::LogGroup
+      Properties:
+        LogGroupName: "/aws/lambda/servian-techchallengeapp-cluster-Secret-Rotation"
+        RetentionInDays: !Ref RdsSecretRotationLogGroupRetention
+  # --- End Amazon CloudWatch Log Groups ---
 
 Outputs:
   StackDeletionRds:
