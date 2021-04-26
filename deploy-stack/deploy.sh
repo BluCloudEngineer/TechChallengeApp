@@ -12,7 +12,7 @@ region="ap-southeast-2"
 case $1 in
     c)
         echo "Creating the stack"
-        aws cloudformation create-stack --stack-name $stackName --template-body file://aws-golang-stack.yaml
+        aws cloudformation create-stack --stack-name $stackName --template-body file://aws-golang-stack.yaml --capabilities CAPABILITY_AUTO_EXPAND CAPABILITY_IAM
         aws cloudformation wait stack-create-complete --stack-name $stackName
         echo "Stack created"
         exit 0
@@ -20,7 +20,7 @@ case $1 in
     
     u)
         echo "Updating the stack"
-        aws cloudformation update-stack --stack-name $stackName --template-body file://aws-golang-stack.yaml
+        aws cloudformation update-stack --stack-name $stackName --template-body file://aws-golang-stack.yaml --capabilities CAPABILITY_AUTO_EXPAND CAPABILITY_IAM
         aws cloudformation wait stack-update-complete --stack-name $stackName
         echo "Stack update complete"
         exit 0
