@@ -1,2 +1,2 @@
-"ListenHost" = "localhost"
+"ListenHost" = "0.0.0.0"
 "ListenPort" = "3000"
