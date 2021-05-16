@@ -16,7 +16,7 @@ ADD dist/conf.toml /conf.toml
 COPY dist/assets/ /assets
 
 # Expose the required port
-EXPOSE 3000
+EXPOSE 80
 
 # Run the following commands when executing the Docker container
 CMD /TechChallengeApp updatedb -s && /TechChallengeApp serve

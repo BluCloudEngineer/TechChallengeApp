@@ -1,2 +1,2 @@
 "ListenHost" = "0.0.0.0"
-"ListenPort" = "3000"
+"ListenPort" = "80"
