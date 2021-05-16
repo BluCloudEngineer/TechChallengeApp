@@ -1,0 +1,33 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Deploy Servian Tech Challenge App to AWS - Part 1 of 2"
+
+Parameters:
+  ProjectName:
+    Default: "Servian Tech Challenge App"
+    Description: "The name of the AWS project"
+    Type: "String"
+
+Resources:
+  EcrRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      ImageScanningConfiguration:
+        ScanOnPush: "true"
+      ImageTagMutability: "MUTABLE"
+      RepositoryName: "techchallengeapp-ecr-repository"
+      Tags:
+        - Key: "Name"
+          Value: "Servian Tech Challenge App - Repository"
+        - Key: "Project"
+          Value: !Ref ProjectName
+
+Outputs:
+  AmazonEcrRepositoryName:
+    Description: "The name of the Servian Tech Challenge App repository"
+    Value: !Ref EcrRepository
+    Export:
+      Name: EcrRepositoryName
+  
+  AmazonEcrUrl:
+    Description: "Amazon ECR URL"
+    Value: !Sub "${AWS::AccountId}.dkr.ecr.ap-southeast-2.amazonaws.com"
