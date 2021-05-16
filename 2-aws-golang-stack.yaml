@@ -2,7 +2,7 @@ AWSTemplateFormatVersion: "2010-09-09"
 Transform:
   - "AWS::SecretsManager-2020-07-23"
 
-Description: "Deploy Servian Tech Challenge App to AWS"
+Description: "Deploy Servian Tech Challenge App to AWS - Part 2 of 2"
 
 
 Parameters:
@@ -85,6 +85,30 @@ Parameters:
       - 3653
     Default: 30 # Days
     Description: "Total number of days to retain Amazon CloudWatch logs"
+    Type: "Number"
+  
+  DesiredTasksCount:
+    ConstraintDescription: "Must be a positive integer value that is greater than or equal to one and less than or equal to ten"
+    Default: 3
+    Description: "The total number of tasks to run on the service"
+    MaxValue: 10
+    MinValue: 1
+    Type: "Number"
+  
+  ElbHealthCheckInterval:
+    ConstraintDescription: "Must be a positive integer value that is greater than or equal to 10 and less than or equal to 30"
+    Default: 10 # Seconds
+    Description: "The total amount of time in seconds to get the health of an instance associated with the Application Load Balancer"
+    MaxValue: 30
+    MinValue: 10
+    Type: "Number"
+
+  ElbHealthCheckCount:
+    ConstraintDescription: "Must be a positive integer value that is greater than or equal to 2 and less than or equal to 10"
+    Default: 3
+    Description: "Total number of successful health checks to deem an instance healthy"
+    MaxValue: 10
+    MinValue: 2
     Type: "Number"
 
 
@@ -481,10 +505,10 @@ Resources:
         GroupDescription: "Access to RDS cluster"
         GroupName: "TechChallengeApp-RDS-Access"
         SecurityGroupIngress:
-          - CidrIp: "10.0.0.0/16"
-            Description: "PostgreSQL RDS access"
+          - Description: "PostgreSQL RDS access"
             FromPort: 5432
             IpProtocol: "tcp"
+            SourceSecurityGroupId: !Sub ${EcsSecurityGroup.GroupId}
             ToPort: 5432
         Tags:
           - Key: "Name"
@@ -510,41 +534,251 @@ Resources:
           - Key: "Project"
             Value: !Ref ProjectName
         VpcId: !Ref TechChallengeVpc
-  # --- End Security Groups ---
-
-  # --- Start Amazon CloudWatch Log Groups ---
-    RdsSecretLogGroup:
-      DependsOn: RdsSecretCredentialsRotation
-      Type: AWS::Logs::LogGroup
+    
+    EcsSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
       Properties:
-        LogGroupName: "/aws/lambda/servian-techchallengeapp-cluster-Secret-Rotation"
-        RetentionInDays: !Ref RdsSecretRotationLogGroupRetention
-  # --- End Amazon CloudWatch Log Groups ---
-
-  # --- Start Amazon ECR Repository ---
-    EcrRepository:
-      Type: AWS::ECR::Repository
-      Properties:
-        ImageScanningConfiguration:
-          ScanOnPush: "true"
-        ImageTagMutability: "MUTABLE"
-        RepositoryName: "techchallengeapp-ecr-repository"
+        GroupDescription: "Access to the Servian Tech Challenge App on ECS"
+        GroupName: "TechChallengeApp-Amazon-ECS"
+        SecurityGroupIngress:
+          - Description: "Servian Tech Challenge App Container"
+            FromPort: 80
+            IpProtocol: "tcp"
+            SourceSecurityGroupId: !Sub ${AlbSecurityGroup.GroupId}
+            ToPort: 80
         Tags:
           - Key: "Name"
-            Value: "Servian Tech Challenge App - Repository"
+            Value: "Amazon ECS Security Group"
           - Key: "Project"
             Value: !Ref ProjectName
-  # --- End Amazon ECR Repository ---
+        VpcId: !Ref TechChallengeVpc
+    
+    AlbSecurityGroup:
+      Type: AWS::EC2::SecurityGroup
+      Properties:
+        GroupDescription: "Access to the Application Load Balancer used by the Servian Tech Challenge App"
+        GroupName: "TechChallengeApp-Amazon-ALB"
+        SecurityGroupIngress:
+          - CidrIp: "0.0.0.0/0"
+            Description: "Servian Tech Challenge App - Internet Access"
+            FromPort: 80
+            IpProtocol: "tcp"
+            ToPort: 80
+        Tags:
+          - Key: "Name"
+            Value: "Amazon ALB Security Group"
+          - Key: "Project"
+            Value: !Ref ProjectName
+        VpcId: !Ref TechChallengeVpc
+  # --- End Security Groups ---
+
+  # --- Start Amazon CloudWatch Log Group ---
+    EcsTaskDefinitionLogGroup:
+      DependsOn: EcsTaskDefinition
+      Type: AWS::Logs::LogGroup
+      Properties:
+        LogGroupName: "/ecs/Servian-Tech-Challenge-App"
+        RetentionInDays: !Ref RdsSecretRotationLogGroupRetention
+  # --- End Amazon CloudWatch Log Group ---
+
+  # --- Start Amazon ECS Cluster ---
+    EcsCluster:
+      Type: AWS::ECS::Cluster
+      Properties:
+        CapacityProviders:
+          - "FARGATE"
+        ClusterName: "ServianTechChallengeAppCluster"
+        Tags:
+          - Key: "Name"
+            Value: "Servian Tech Challenge App - Cluster"
+          - Key: "Project"
+            Value: !Ref ProjectName
+  # --- End Amazon ECS Cluster ---
+
+  # --- Start Amazon ECS Task Definition ---
+    EcsTaskDefinition:
+      DependsOn:
+        - RdsDatabaseClusterInstance1
+        - RdsDatabaseClusterInstance2
+      Type: AWS::ECS::TaskDefinition
+      Properties:
+        ContainerDefinitions:
+          - DisableNetworking: false
+            Essential: true
+            HealthCheck:
+              Command:
+                - "CMD-SHELL"
+                - "curl -f http://localhost:80/healthcheck/ || exit 1"
+            Image: !Sub
+              - "${AWS::AccountId}.dkr.ecr.ap-southeast-2.amazonaws.com/${Repo}:latest"
+              - Repo: !ImportValue EcrRepositoryName
+            Interactive: false
+            LogConfiguration:
+              LogDriver: "awslogs"
+              Options:
+                awslogs-group: "/ecs/Servian-Tech-Challenge-App"
+                awslogs-region: "ap-southeast-2"
+                awslogs-stream-prefix: "ecs"
+            Name: "ServianTechChallengeAppContainer"
+            PortMappings:
+              - ContainerPort: 80
+                HostPort: 80
+                Protocol: "tcp"
+            Privileged: false
+            PseudoTerminal: false
+        Cpu: "256"
+        ExecutionRoleArn: !Sub ${EcsExecutionRole.Arn}
+        Family: "Servian-Tech-Challenge-App"
+        Memory: "512"
+        NetworkMode: "awsvpc"
+        RequiresCompatibilities:
+          - "FARGATE"
+        Tags:
+          - Key: "Name"
+            Value: "Servian Tech Challenge App - Task Definition"
+          - Key: "Project"
+            Value: !Ref ProjectName
+        TaskRoleArn: !Sub "${EcsExecutionRole.Arn}"
+  # --- End Amazon ECS Task Definition ---
+
+  # --- Start Amazon ECS Service ---
+    EcsService:
+      DependsOn:
+        - RdsDatabaseClusterInstance1
+        - RdsDatabaseClusterInstance2
+      Type: AWS::ECS::Service
+      Properties:
+        Cluster: !Sub "${EcsCluster.Arn}"
+        DeploymentConfiguration:
+          DeploymentCircuitBreaker:
+            Enable: true
+            Rollback: true
+        DeploymentController:
+          Type: "ECS"
+        DesiredCount: !Ref DesiredTasksCount
+        EnableECSManagedTags: true
+        EnableExecuteCommand: false # This functionality is not required
+        HealthCheckGracePeriodSeconds: 60 # 1 minute grace period
+        LaunchType: "FARGATE"
+        LoadBalancers:
+          - ContainerName: "ServianTechChallengeAppContainer"
+            ContainerPort: 80
+            TargetGroupArn: !Ref EcsApplicationLoadBalancerTargetGroup
+        NetworkConfiguration:
+          AwsvpcConfiguration:
+            AssignPublicIp: ENABLED # This needs to be enabled for the ECS service to run
+            SecurityGroups:
+              - !Ref EcsSecurityGroup
+            Subnets:
+              - !Ref PublicSubnet1
+              - !Ref PublicSubnet2
+              - !Ref PublicSubnet3
+        SchedulingStrategy: "REPLICA"
+        ServiceName: "Servian-Tech-Challenge-App-Service"
+        Tags:
+          - Key: "Name"
+            Value: "Servian Tech Challenge App - Service"
+          - Key: "Project"
+            Value: !Ref ProjectName
+        TaskDefinition: !Ref EcsTaskDefinition
+  # --- End Amazon ECS Service ---
+
+  # --- Start Amazon Application Load Balancer ---
+    EcsApplicationLoadBalancer:
+      Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+      Properties:
+        IpAddressType: "ipv4"
+        Name: "Servian-Tech-Challenge-ALB"
+        Scheme: "internet-facing"
+        SecurityGroups:
+          - !Sub ${AlbSecurityGroup.GroupId}
+        Subnets:
+          - !Ref PublicSubnet1
+          - !Ref PublicSubnet2
+          - !Ref PublicSubnet3
+        Tags:
+          - Key: "Name"
+            Value: "Servian Tech Challenge App - Application Load Balancer"
+          - Key: "Project"
+            Value: !Ref ProjectName
+        Type: "application"
+
+    EcsApplicationLoadBalancerTargetGroup:
+      Type: AWS::ElasticLoadBalancingV2::TargetGroup
+      Properties:
+        HealthCheckEnabled: true
+        HealthCheckIntervalSeconds: !Ref ElbHealthCheckInterval
+        HealthCheckPath: "/healthcheck/"
+        HealthCheckPort: "80"
+        HealthCheckProtocol: "HTTP"
+        HealthyThresholdCount: !Ref ElbHealthCheckCount
+        Name: "Servian-Tech-Challenge-TG"
+        Port: 80
+        Protocol: "HTTP"
+        ProtocolVersion: "HTTP1"
+        Tags:
+          - Key: "Name"
+            Value: "Servian Tech Challenge App - Application Load Balancer Target Group"
+          - Key: "Project"
+            Value: !Ref ProjectName
+        TargetType: "ip"
+        UnhealthyThresholdCount: !Ref ElbHealthCheckCount # This must be the same as HealthyThresholdCount
+        VpcId: !Ref TechChallengeVpc
+        
+    EcsApplicationLoadBalancerListener:
+      Type: AWS::ElasticLoadBalancingV2::Listener
+      Properties:
+        DefaultActions:
+          - TargetGroupArn: !Ref EcsApplicationLoadBalancerTargetGroup
+            Type: "forward"
+        LoadBalancerArn: !Ref EcsApplicationLoadBalancer
+        Port: 80
+        Protocol: "HTTP"
+  # --- End Amazon Application Load Balancer ---
+
+  # --- Start Amazon IAM Roles ---
+    EcsExecutionRole:
+      Type: AWS::IAM::Role
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service:
+                  - "ecs-tasks.amazonaws.com"
+              Action:
+                - "sts:AssumeRole"
+        Description: "Servian Tech Challenge App - ECS Task Execution IAM role"
+        ManagedPolicyArns:
+          - "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+        Path: "/"
+        Policies:
+          - PolicyDocument:
+              Version: "2012-10-17"
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - "secretsmanager:GetSecretValue"
+                  Resource:
+                    - !Ref RdsSecretCredentials
+            PolicyName: "Get-RDS-Secret-Value"
+        RoleName: "Servian-Tech-Challenge-App-ECS-Task-Execution-Role"
+        Tags:
+          - Key: "Project"
+            Value: !Ref ProjectName
+  # --- End Amazon IAM Roles ---
+
 
 Outputs:
   StackDeletionRds:
-    Description: "Stack Deletion Clean Up"
+    Description: "Stack Deletion Clean Up - 1 of 2"
     Value: "After deleting the stack, it is recommended that you delete the backup snapshot(s) that are automatically generated by Amazon RDS"
   
-  AmazonEcrUrl:
-    Description: "Amazon ECR URL"
-    Value: !Sub "${AWS::AccountId}.dkr.ecr.ap-southeast-2.amazonaws.com"
+  StackDeletionLogGroup:
+    Description: "Stack Deletion Clean Up - 2 of 2"
+    Value: "Due to how the RDS Secret Rotation resource is created, you will need to manually delete the following Amazon CloudWatch Log Group: /aws/lambda/servian-techchallengeapp-cluster-Secret-Rotation"
   
-  AmazonEcrRepositoryName:
-    Description: "The name of the Servian Tech Challenge App repository"
-    Value: !Ref EcrRepository
+  TechChallengeUrl:
+    Description: "To access the deployed solution, navigate to the following URL using a web browser"
+    Value: !Sub "http://${EcsApplicationLoadBalancer.DNSName}"
