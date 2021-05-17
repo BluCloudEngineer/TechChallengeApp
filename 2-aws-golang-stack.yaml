@@ -56,14 +56,6 @@ Parameters:
     Description: "The name of the database engine to be used by the RDS database instance"
     Type: "String"
   
-  RdsSecretRotationDays:
-    ConstraintDescription: "Must be a positive integer value that is greater than or equal to one or less than or equal to 60"
-    Default: 30 # Days
-    Description: "The total number of days before the RDS secret is rotated"
-    MaxValue: 60
-    MinValue: 1
-    Type: "Number"
-  
   RdsSecretRotationLogGroupRetention:
     AllowedValues:
       - 1
@@ -391,24 +383,6 @@ Resources:
         SecretId: !Ref RdsSecretCredentials
         TargetId: !Ref RdsDatabaseCluster
         TargetType: "AWS::RDS::DBCluster"
-    
-    RdsSecretCredentialsRotation:
-      DependsOn: RdsSecretCredentialsTargetAttachment
-      Type: AWS::SecretsManager::RotationSchedule
-      Properties:
-        HostedRotationLambda:
-          RotationLambdaName: "servian-techchallengeapp-cluster-Secret-Rotation"
-          RotationType: "PostgreSQLSingleUser"
-          VpcSecurityGroupIds: !Sub ${RdsSecurityGroup.GroupId}
-          VpcSubnetIds:
-            Fn::Join:
-                - ","
-                - - !Ref PrivateSubnet1
-                  - !Ref PrivateSubnet2
-                  - !Ref PrivateSubnet3
-        RotationRules:
-          AutomaticallyAfterDays: !Ref RdsSecretRotationDays
-        SecretId: !Ref RdsSecretCredentials
   # --- End create RDS credentials ---
 
   # --- Start create RDS cluster and database instances ---
@@ -572,21 +546,14 @@ Resources:
         VpcId: !Ref TechChallengeVpc
   # --- End Security Groups ---
 
-  # --- Start Amazon CloudWatch Log Groups ---
-    RdsSecretLogGroup:
-      DependsOn: RdsSecretCredentialsTargetAttachment
-      Type: AWS::Logs::LogGroup
-      Properties:
-        LogGroupName: "/aws/lambda/servian-techchallengeapp-cluster-Secret-Rotation"
-        RetentionInDays: !Ref RdsSecretRotationLogGroupRetention
-
+  # --- Start Amazon CloudWatch Log Group ---
     EcsTaskDefinitionLogGroup:
       DependsOn: EcsTaskDefinition
       Type: AWS::Logs::LogGroup
       Properties:
         LogGroupName: "/ecs/Servian-Tech-Challenge-App"
         RetentionInDays: !Ref RdsSecretRotationLogGroupRetention
-  # --- End Amazon CloudWatch Log Groups ---
+  # --- End Amazon CloudWatch Log Group ---
 
   # --- Start Amazon ECS Cluster ---
     EcsCluster:
