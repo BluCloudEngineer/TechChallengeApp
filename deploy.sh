@@ -86,7 +86,7 @@ case $1 in
     
         # Show completion banner and Network Load Balancer URL
         echo "Stacks created!"
-        elbUrl=$(aws cloudformation --region $region describe-stacks --stack-name $stackName2 --query "Stacks[0].Outputs[2].OutputValue" --output text)
+        elbUrl=$(aws cloudformation --region $region describe-stacks --stack-name $stackName2 --query "Stacks[0].Outputs[1].OutputValue" --output text)
         echo -e "To access the deployed solution, navigate to the following URL using a web browser:\t${elbUrl}"
         
         # Exit the script
@@ -107,7 +107,7 @@ case $1 in
 
         # Show completion banner and Network Load Balancer URL
         echo "Stacks created!"
-        elbUrl=$(aws cloudformation --region $region describe-stacks --stack-name $stackName2 --query "Stacks[0].Outputs[2].OutputValue" --output text)
+        elbUrl=$(aws cloudformation --region $region describe-stacks --stack-name $stackName2 --query "Stacks[0].Outputs[1].OutputValue" --output text)
         echo -e "To access the deployed solution, navigate to the following URL using a web browser:\t${elbUrl}"
         
         # Exit the script
